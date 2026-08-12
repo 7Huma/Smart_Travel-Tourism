@@ -1,0 +1,558 @@
+{
+  "name": "workflow-6 Travel Feedback Analytics Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "documentId": {
+          "__rl": true,
+          "mode": "url",
+          "value": "https://docs.google.com/spreadsheets/d/1HmbOT2EoVtPMUVRjwuM530DIkaodpaODnFX2AY8OZOQ/edit",
+          "__regex": "https:\\/\\/(?:drive|docs)\\.google\\.com(?:\\/.*|)\\/d\\/([0-9a-zA-Z\\-_]+)(?:\\/.*|)"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 555180760,
+          "mode": "list",
+          "cachedResultName": "Form responses 1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HmbOT2EoVtPMUVRjwuM530DIkaodpaODnFX2AY8OZOQ/edit#gid=555180760"
+        },
+        "event": "rowAdded",
+        "options": {}
+      },
+      "id": "08695909-9a18-4f6f-a99a-581c5b9703a1",
+      "name": "Google Sheets Trigger",
+      "type": "n8n-nodes-base.googleSheetsTrigger",
+      "typeVersion": 1,
+      "position": [
+        -448,
+        128
+      ],
+      "credentials": {
+        "googleSheetsTriggerOAuth2Api": {
+          "id": "McLHZifdVzkvOx6a",
+          "name": "Google Sheets Trigger account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const raw = $input.item.json;\n\n// Remove extra spaces and newlines from column names\nconst row = {};\n\nfor (const key in raw) {\n  row[key.trim().replace(/\\n/g, '')] = raw[key];\n}\n\nfunction toNumber(val) {\n  if (val === undefined || val === null || val === '') return null;\n  const n = Number(String(val).replace(/[^0-9.-]/g, ''));\n  return isNaN(n) ? null : n;\n}\n\nfunction toBoolean(val) {\n  if (val === undefined || val === null || val === '') return null;\n  const v = String(val).trim().toLowerCase();\n  if (['yes','true','y'].includes(v)) return true;\n  if (['no','false','n'].includes(v)) return false;\n  return null;\n}\n\nfunction trimStr(val) {\n  return val == null ? '' : String(val).trim();\n}\n\nconst normalized = {\n  timestamp: trimStr(row['Timestamp']),\n  travelerId: trimStr(row['Traveler ID']),\n  bookingReference: trimStr(row['Booking Reference']),\n  fullName: trimStr(row['Full Name']),\n  email: trimStr(row['Email']),\n  destination: trimStr(row['Destination']),\n  travelStartDate: trimStr(row['Travel Start Date']),\n  travelEndDate: trimStr(row['Travel End Date']),\n  totalBudget: toNumber(row['Total Budget']),\n  overallRating: toNumber(row['Overall Rating']),\n  hotelRating: toNumber(row['Hotel Rating']),\n  transportRating: toNumber(row['Transport Rating']),\n  foodRating: toNumber(row['Food Rating']),\n  safetyRating: toNumber(row['Safety Rating']),\n  destinationRating: toNumber(row['Destination Rating']),\n  itineraryUseful: toBoolean(row['Was the itinerary useful?']),\n  wouldRecommend: toBoolean(row['Would you recommend us?']),\n  favoriteExperience: trimStr(row['Favorite Experience']),\n  improvements: trimStr(row['Areas for Improvement']),\n  comments: trimStr(row['Additional Comments'])\n};\n\nreturn {\n  json: normalized\n};"
+      },
+      "id": "96cc9c82-3715-45a9-ad4d-fd832f614fb9",
+      "name": "Normalize Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -224,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const item = $input.item.json;\n\nlet rawText = '';\nif (item.message && item.message.content) {\n  rawText = item.message.content;\n} else if (item.choices && item.choices[0] && item.choices[0].message) {\n  rawText = item.choices[0].message.content;\n} else if (typeof item.content === 'string') {\n  rawText = item.content;\n} else if (item.text) {\n  rawText = item.text;\n} else {\n  rawText = JSON.stringify(item);\n}\n\nlet cleaned = String(rawText).trim();\ncleaned = cleaned.replace(/^```json\\s*/i, '').replace(/^```\\s*/, '').replace(/```\\s*$/, '').trim();\n\nlet parsed;\nlet aiParseFailed = false;\n\ntry {\n  parsed = JSON.parse(cleaned);\n} catch (err) {\n  aiParseFailed = true;\n  parsed = {\n    overallSentiment: 'unknown',\n    positiveHighlights: [],\n    negativeHighlights: [],\n    serviceIssues: [],\n    mostAppreciatedFeature: '',\n    areasForImprovement: [],\n    likelihoodOfReturning: 'unknown',\n    customerSatisfactionScore: 0,\n    recommendedBusinessActions: [],\n    executiveSummary: 'AI response could not be parsed.'\n  };\n}\n\nreturn {\n  json: {\n    aiParseFailed,\n    overallSentiment: parsed.overallSentiment ?? 'unknown',\n    positiveHighlights: parsed.positiveHighlights ?? [],\n    negativeHighlights: parsed.negativeHighlights ?? [],\n    serviceIssues: parsed.serviceIssues ?? [],\n    mostAppreciatedFeature: parsed.mostAppreciatedFeature ?? '',\n    areasForImprovement: parsed.areasForImprovement ?? [],\n    likelihoodOfReturning: parsed.likelihoodOfReturning ?? 'unknown',\n    customerSatisfactionScore: parsed.customerSatisfactionScore ?? 0,\n    recommendedBusinessActions: parsed.recommendedBusinessActions ?? [],\n    executiveSummary: parsed.executiveSummary ?? ''\n  }\n};"
+      },
+      "id": "b4adf91e-5f7f-48fc-846c-1471eabb8651",
+      "name": "Parse AI Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        288,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "id": "2d9d33b8-785e-4569-b5df-74f618ae04d8",
+      "name": "Merge Data",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        480,
+        -176
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const data = $input.item.json;\n\nfunction daysBetween(start, end) {\n  const s = new Date(start);\n  const e = new Date(end);\n  if (isNaN(s) || isNaN(e)) return null;\n  return Math.round((e - s) / (1000 * 60 * 60 * 24));\n}\n\nconst tripDuration = daysBetween(data.travelStartDate, data.travelEndDate);\n\nconst ratingFields = [\n  data.hotelRating,\n  data.transportRating,\n  data.foodRating,\n  data.safetyRating,\n  data.destinationRating\n].filter(r => typeof r === 'number' && !isNaN(r));\n\nconst averageRating = ratingFields.length\n  ? Number((ratingFields.reduce((a, b) => a + b, 0) / ratingFields.length).toFixed(2))\n  : null;\n\nlet budgetCategory = 'Unknown';\nif (typeof data.totalBudget === 'number') {\n  if (data.totalBudget < 30000) budgetCategory = 'Low';\n  else if (data.totalBudget < 80000) budgetCategory = 'Medium';\n  else budgetCategory = 'High';\n}\n\nlet customerType = 'Standard';\nif (budgetCategory === 'High') customerType = 'Premium';\nelse if (budgetCategory === 'Low') customerType = 'Budget';\n\nlet recommendationScore = 0;\nif (typeof data.overallRating === 'number') {\n  recommendationScore += (data.overallRating / 5) * 60;\n}\nif (data.wouldRecommend === true) recommendationScore += 40;\nrecommendationScore = Math.round(recommendationScore);\n\nconst aiScore = typeof data.customerSatisfactionScore === 'number' ? data.customerSatisfactionScore : 0;\nconst ratingComponent = averageRating !== null ? (averageRating / 5) * 100 : 0;\nconst overallSatisfactionScore = Math.round((ratingComponent * 0.6) + (aiScore * 0.4));\n\nlet returnVisitorProbability = 'Low';\nconst likelihood = String(data.likelihoodOfReturning || '').toLowerCase();\nif (likelihood.includes('high') || data.wouldRecommend === true) {\n  returnVisitorProbability = 'High';\n} else if (likelihood.includes('medium') || likelihood.includes('moderate')) {\n  returnVisitorProbability = 'Medium';\n}\n\nconst serviceRatings = {\n  Hotel: data.hotelRating,\n  Transport: data.transportRating,\n  Food: data.foodRating,\n  Safety: data.safetyRating,\n  Destination: data.destinationRating\n};\n\nlet highestRatedService = 'N/A';\nlet highestValue = -Infinity;\nfor (const [service, value] of Object.entries(serviceRatings)) {\n  if (typeof value === 'number' && value > highestValue) {\n    highestValue = value;\n    highestRatedService = service;\n  }\n}\n\n// NOTE: these Business Insights are computed per-record (single feedback\n// response). True cross-customer aggregates (e.g. most popular destination\n// across ALL customers) require querying the full Travel Analytics sheet\n// history rather than a single trigger event.\nconst businessInsights = {\n  mostPopularDestination: data.destination || 'N/A',\n  highestRatedService: highestRatedService,\n  mostCommonComplaint: data.improvements || 'None reported',\n  averageBudget: typeof data.totalBudget === 'number' ? data.totalBudget : null,\n  preferredTravelStyle: budgetCategory\n};\n\nreturn {\n  json: {\n    ...data,\n    tripDuration,\n    averageRating,\n    budgetCategory,\n    customerType,\n    recommendationScore,\n    overallSatisfactionScore,\n    returnVisitorProbability,\n    highestRatedService,\n    businessInsights\n  }\n};"
+      },
+      "id": "349c2a97-7603-4078-9ab4-08589be11eb8",
+      "name": "Travel Analytics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const d = $input.item.json;\n\nconst status = d.aiParseFailed ? 'Needs Review (AI Parse Failed)' : 'Processed';\n\nconst report = `# Travel Feedback Analytics Report\n\n## Traveler Information\n- **Name:** ${d.fullName}\n- **Traveler ID:** ${d.travelerId}\n- **Booking Reference:** ${d.bookingReference}\n- **Email:** ${d.email}\n\n## Trip Summary\n- **Destination:** ${d.destination}\n- **Travel Dates:** ${d.travelStartDate} to ${d.travelEndDate}\n- **Trip Duration:** ${d.tripDuration ?? 'N/A'} day(s)\n- **Total Budget:** ${d.totalBudget ?? 'N/A'} (${d.budgetCategory})\n- **Customer Type:** ${d.customerType}\n\n## Feedback Scores\n- **Overall Rating:** ${d.overallRating ?? 'N/A'} / 5\n- **Hotel Rating:** ${d.hotelRating ?? 'N/A'} / 5\n- **Transport Rating:** ${d.transportRating ?? 'N/A'} / 5\n- **Food Rating:** ${d.foodRating ?? 'N/A'} / 5\n- **Safety Rating:** ${d.safetyRating ?? 'N/A'} / 5\n- **Destination Rating:** ${d.destinationRating ?? 'N/A'} / 5\n- **Average Rating:** ${d.averageRating ?? 'N/A'} / 5\n- **Highest Rated Service:** ${d.highestRatedService}\n\n## AI Sentiment Analysis\n- **Overall Sentiment:** ${d.overallSentiment}\n- **Positive Highlights:** ${(d.positiveHighlights || []).join(', ') || 'None'}\n- **Negative Highlights:** ${(d.negativeHighlights || []).join(', ') || 'None'}\n- **Service Issues:** ${(d.serviceIssues || []).join(', ') || 'None'}\n- **Most Appreciated Feature:** ${d.mostAppreciatedFeature || 'N/A'}\n- **Customer Satisfaction Score (AI):** ${d.customerSatisfactionScore ?? 'N/A'}\n- **Likelihood of Returning:** ${d.likelihoodOfReturning}\n\n## Business Insights\n- **Most Popular Destination:** ${d.businessInsights?.mostPopularDestination}\n- **Highest Rated Service:** ${d.businessInsights?.highestRatedService}\n- **Most Common Complaint:** ${d.businessInsights?.mostCommonComplaint}\n- **Average Budget:** ${d.businessInsights?.averageBudget ?? 'N/A'}\n- **Preferred Travel Style:** ${d.businessInsights?.preferredTravelStyle}\n\n## Recommendations\n${(d.recommendedBusinessActions || []).map(a => `- ${a}`).join('\\n') || '- No specific actions recommended.'}\n\n## Executive Summary\n${d.executiveSummary || 'N/A'}\n\n## Overall Satisfaction\n- **Overall Satisfaction Score:** ${d.overallSatisfactionScore ?? 'N/A'} / 100\n- **Recommendation Score:** ${d.recommendationScore ?? 'N/A'} / 100\n- **Return Visitor Probability:** ${d.returnVisitorProbability}\n\n## Improvement Suggestions\n- **Areas for Improvement (Customer):** ${d.improvements || 'None reported'}\n- **Areas for Improvement (AI):** ${(d.areasForImprovement || []).join(', ') || 'None'}\n`;\n\nreturn {\n  json: {\n    ...d,\n    status,\n    analyticsReport: report\n  }\n};"
+      },
+      "id": "95f79bc3-2266-4347-86d3-6a5eeff51c7f",
+      "name": "Generate Final Analytics Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1bGaeaJr8Q-cUNTGe30e32cz7S4mkhDlEJSvJp2sNvy4/edit",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1bGaeaJr8Q-cUNTGe30e32cz7S4mkhDlEJSvJp2sNvy4/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Traveler ID": "={{ $json.travelerId }}",
+            "Booking Reference": "={{ $json.bookingReference }}",
+            "Destination": "={{ $json.destination }}",
+            "Overall Rating": "={{ $json.overallRating }}",
+            "Safety Rating": "={{ $json.safetyRating }}",
+            "Customer Satisfaction Score": "={{ $json.customerSatisfactionScore }}",
+            "Sentiment": "={{ $json.overallSentiment }}",
+            "Recommendation Score": "={{ $json.recommendationScore }}",
+            "Return Visitor Probability": "={{ $json.returnVisitorProbability }}",
+            "Favorite Experience": "={{ $json.favoriteExperience }}",
+            "Areas for Improvement": "={{ $json.improvements }}",
+            "Status": "={{ $json.status }}",
+            "Timestamp ": "={{ $json.timestamp }}",
+            " Name": "={{ $json.fullName }}",
+            "Email,": "={{ $json.email }}",
+            "Trip Duration,": "={{ $json.tripDuration }}",
+            "Budget,": "={{ $json.totalBudget }}",
+            " Transport Rating,": "={{ $json.transportRating }}",
+            " Food Rating": "={{ $json.foodRating }}",
+            " Destination Rating": "={{ $json.destinationRating }}",
+            " Business Insights": "={{ $json.overallSentiment }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Timestamp ",
+              "displayName": "Timestamp ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Traveler ID",
+              "displayName": "Traveler ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Booking Reference",
+              "displayName": "Booking Reference",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": " Name",
+              "displayName": " Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Email,",
+              "displayName": "Email,",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Destination",
+              "displayName": "Destination",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Trip Duration,",
+              "displayName": "Trip Duration,",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Budget,",
+              "displayName": "Budget,",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Overall Rating",
+              "displayName": "Overall Rating",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": " Transport Rating,",
+              "displayName": " Transport Rating,",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": " Food Rating",
+              "displayName": " Food Rating",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Safety Rating",
+              "displayName": "Safety Rating",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": " Destination Rating",
+              "displayName": " Destination Rating",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Customer Satisfaction Score",
+              "displayName": "Customer Satisfaction Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Sentiment",
+              "displayName": "Sentiment",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": " Sentiment",
+              "displayName": " Sentiment",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Recommendation Score",
+              "displayName": "Recommendation Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Return Visitor Probability",
+              "displayName": "Return Visitor Probability",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Favorite Experience",
+              "displayName": "Favorite Experience",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Areas for Improvement",
+              "displayName": "Areas for Improvement",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": " Business Insights",
+              "displayName": " Business Insights",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "c5bb4eb3-5558-48d6-bf6a-b61546083c41",
+      "name": "Store Analytics",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1104,
+        128
+      ],
+      "alwaysOutputData": false,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "GXHemPVicMrOyJky",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "=You are a travel feedback analysis engine. Analyze the customer's travel feedback and return ONLY valid JSON matching exactly this schema, with no markdown formatting and no explanation text:\n{\"overallSentiment\":\"\",\"positiveHighlights\":[],\"negativeHighlights\":[],\"serviceIssues\":[],\"mostAppreciatedFeature\":\"\",\"areasForImprovement\":[],\"likelihoodOfReturning\":\"\",\"customerSatisfactionScore\":0,\"recommendedBusinessActions\":[],\"executiveSummary\":\"\"}"
+            },
+            {
+              "content": "=Analyze this customer's travel feedback and return ONLY valid JSON (no markdown, no explanation):\n\nDestination: {{ $json.destination }}\nOverall Rating: {{ $json.overallRating }}/5\nHotel Rating: {{ $json.hotelRating }}/5\nTransport Rating: {{ $json.transportRating }}/5\nFood Rating: {{ $json.foodRating }}/5\nSafety Rating: {{ $json.safetyRating }}/5\nDestination Rating: {{ $json.destinationRating }}/5\nItinerary Useful: {{ $json.itineraryUseful }}\nWould Recommend: {{ $json.wouldRecommend }}\nFavorite Experience: {{ $json.favoriteExperience }}\nAreas for Improvement: {{ $json.improvements }}\nAdditional Comments: {{ $json.comments }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        16,
+        176
+      ],
+      "id": "238072ef-011c-4e08-a9dd-a803ebd32e16",
+      "name": "AI Sentiment Analysis1",
+      "credentials": {
+        "openAiApi": {
+          "id": "jRkjj83Fa8JhcC3F",
+          "name": "travel api key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "mahivarshney08@gmail.com",
+        "subject": "Thank You for Your Feedback!",
+        "message": "=<p>Dear {{ $json[\" Name\"] }},</p>\n\n<p>Thank you for sharing your valuable feedback about your recent trip to <strong>{{ $json[\"Destination\"] }}</strong>.</p>\n\n<p>We truly appreciate the time you took to help us improve our travel services.</p>\n\n<h3>Trip Summary</h3>\n\n<ul>\n  <li><strong>Booking Reference:</strong> {{ $json[\"Booking Reference\"] }}</li>\n  <li><strong>Traveler ID:</strong> {{ $json[\"Traveler ID\"] }}</li>\n  <li><strong>Overall Rating:</strong> {{ $json[\"Overall Rating\"] }}/5</li>\n  <li><strong>Customer Satisfaction Score:</strong> {{ $json[\"Customer Satisfaction Score\"] }}</li>\n  <li><strong>Sentiment:</strong> {{ $json[\"Sentiment\"] }}</li>\n</ul>\n\n<p>As a token of our appreciation, enjoy this discount code on your next booking:</p>\n\n<h2>TRAVEL15OFF</h2>\n\n<p>We look forward to planning your next adventure!</p>\n\n<p>If you have any questions, feel free to contact our support team.</p>\n\n<p>\nRegards,<br>\n<b>Smart Tourism & Travel Planning Team</b>\n</p>",
+        "options": {}
+      },
+      "id": "55dc2f98-3ca2-4a4c-b956-380f0eeccbfd",
+      "name": "Send Thank You Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1328,
+        128
+      ],
+      "webhookId": "b138b6da-5136-497d-ae6a-0d83764ff515",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "fviBpoqQFRKs2aY1",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Google Sheets Trigger": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Input": {
+      "main": [
+        [
+          {
+            "node": "AI Sentiment Analysis1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Response": {
+      "main": [
+        [
+          {
+            "node": "Merge Data",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Data": {
+      "main": [
+        [
+          {
+            "node": "Travel Analytics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Travel Analytics": {
+      "main": [
+        [
+          {
+            "node": "Generate Final Analytics Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Final Analytics Report": {
+      "main": [
+        [
+          {
+            "node": "Store Analytics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Analytics": {
+      "main": [
+        [
+          {
+            "node": "Send Thank You Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Sentiment Analysis1": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "02d5ea79-4c5b-495c-90de-c5fce8a93905",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "e0ee328dba738c516ae8cd75aedca74b979bb32ec19925533846568dc06b6a30"
+  },
+  "nodeGroups": [],
+  "id": "TQnMywZduoBDIme9",
+  "tags": []
+}

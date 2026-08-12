@@ -1,0 +1,1404 @@
+{
+  "name": "Workflow 1 - Customer Registration & Preference Collection",
+  "nodes": [
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "fullName",
+              "type": "string",
+              "value": "=\n{{$json.body.personalInformation.fullName}}"
+            },
+            {
+              "id": "a2",
+              "name": "email",
+              "type": "string",
+              "value": "=\n{{$json.body.personalInformation.email}}"
+            },
+            {
+              "id": "a3",
+              "name": "phoneNumber",
+              "type": "string",
+              "value": "=\n{{$json.body.personalInformation.phone}}"
+            },
+            {
+              "id": "a4",
+              "name": "age",
+              "type": "number",
+              "value": "=\n{{ Number($json.body.personalInformation.age) }}"
+            },
+            {
+              "id": "a5",
+              "name": "country",
+              "type": "string",
+              "value": "={{$json.body.personalInformation.country}}"
+            },
+            {
+              "id": "a6",
+              "name": "departureCity",
+              "type": "string",
+              "value": "=\n{{$json.body.tripDetails.departureCity}}"
+            },
+            {
+              "id": "a7",
+              "name": "travelDates",
+              "type": "string",
+              "value": "={{ $json.body.tripDetails.travelStartDate + \" to \" + $json.body.tripDetails.travelEndDate }}"
+            },
+            {
+              "id": "a8",
+              "name": "tripDuration",
+              "type": "string",
+              "value": "={{\nMath.ceil(\n(new Date($json.body.tripDetails.travelEndDate) - new Date($json.body.tripDetails.travelStartDate))\n/ (1000 * 60 * 60 * 24)\n) + \" days\"\n}}"
+            },
+            {
+              "id": "a9",
+              "name": "numberOfTravelers",
+              "type": "number",
+              "value": "={{ Number($json.body.tripDetails.numberOfTravelers) }}"
+            },
+            {
+              "id": "a10",
+              "name": "budget",
+              "type": "number",
+              "value": "={{ Number($json.body.tripDetails.budget) }}"
+            },
+            {
+              "id": "a11",
+              "name": "currency",
+              "type": "string",
+              "value": "={{$json.body.tripDetails.currency}}"
+            },
+            {
+              "id": "a12",
+              "name": "travelStyle",
+              "type": "string",
+              "value": "={{$json.body.travelPreferences.travelStyle}}"
+            },
+            {
+              "id": "a13",
+              "name": "interests",
+              "type": "string",
+              "value": "={{$json.body.travelPreferences.interests}}"
+            },
+            {
+              "id": "a14",
+              "name": "transportPreference",
+              "type": "string",
+              "value": "={{$json.body.travelPreferences.preferredTransport}}"
+            },
+            {
+              "id": "a15",
+              "name": "accommodationPreference",
+              "type": "string",
+              "value": "={{$json.body.travelPreferences.accommodationPreference}}"
+            },
+            {
+              "id": "a16",
+              "name": "specialRequirements",
+              "type": "string",
+              "value": "={{$json.body.additionalRequirements.specialRequirements}}"
+            },
+            {
+              "id": "a17",
+              "name": "comments",
+              "type": "string",
+              "value": "={{$json.body.additionalRequirements.comments}}"
+            },
+            {
+              "id": "a18",
+              "name": "formTimestamp",
+              "type": "string",
+              "value": "={{$now}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "776e6124-9b14-4460-a617-e52c416148a9",
+      "name": "Rename Fields (Clean JSON)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -592,
+        -32
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.item.json;\nconst errors = [];\n\nconst emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;\nif (!item.email || !emailRegex.test(item.email)) {\n  errors.push('Invalid or missing email address.');\n}\n\nconst phoneRegex = /^[+]?[0-9\\s-]{7,15}$/;\nif (!item.phoneNumber || !phoneRegex.test(item.phoneNumber)) {\n  errors.push('Invalid or missing phone number.');\n}\n\nif (item.budget === undefined || item.budget === null || isNaN(item.budget) || item.budget <= 0) {\n  errors.push('Budget must be a number greater than 0.');\n}\n\nlet travelDateValid = true;\nlet parsedDate = null;\nif (!item.travelDates) {\n  travelDateValid = false;\n} else {\n  const rawDate = String(item.travelDates)\n  .split(/\\s+to\\s+|–/)[0]\n  .trim();\n\n  parsedDate = new Date(rawDate);\n  if (isNaN(parsedDate.getTime())) {\n    travelDateValid = false;\n  } else {\n    const today = new Date();\n    today.setHours(0,0,0,0);\n    if (parsedDate < today) {\n      travelDateValid = false;\n    }\n  }\n}\nif (!travelDateValid) {\n  errors.push('Travel date is missing, invalid, or in the past.');\n}\n\nconst requiredFields = [\n  'fullName','email','phoneNumber','age','country','departureCity',\n  'travelDates','tripDuration','numberOfTravelers','budget','currency',\n  'travelStyle','interests','transportPreference','accommodationPreference'\n];\n\nfor (const field of requiredFields) {\n  const val = item[field];\n  if (val === undefined || val === null || String(val).trim() === '') {\n    errors.push('Missing required field: ' + field);\n  }\n}\n\nreturn [{\n  json: {\n    ...item,\n    isValid: errors.length === 0,\n    validationErrors: errors,\n    validationErrorsText: errors.join(' | ')\n  }\n}];"
+      },
+      "id": "63018af9-1c93-4a7b-bb8e-3ad54f2fac73",
+      "name": "Validation Node",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -144,
+        -32
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.isValid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a6f9504b-bf3e-4f51-a2c9-9cc475933d50",
+      "name": "IF Validation Passed",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        80,
+        -32
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.email }}",
+        "subject": "Action Required: Issue with Your Travel Registration Form",
+        "message": "=<!DOCTYPE html>\n<html>\n<body style=\"font-family: Arial, sans-serif; color:#333;\">\n  <h2 style=\"color:#c0392b;\">Registration Could Not Be Processed</h2>\n  <p>Dear {{ $json.fullName || 'Traveler' }},</p>\n  <p>We received your travel registration form, but the following issue(s) were found:</p>\n  <ul>\n    {{ $json.validationErrors.map(e => '<li>' + e + '</li>').join('') }}\n  </ul>\n  <p>Please resubmit the form with corrected details so we can proceed with your registration.</p>\n  <p>Best regards,<br/>Smart Tourism & Travel Planning Platform</p>\n</body>\n</html>",
+        "options": {}
+      },
+      "id": "f76f26c1-92c7-4c9e-9b4a-21f62b353368",
+      "name": "Gmail - Send Validation Failed",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        304,
+        64
+      ],
+      "webhookId": "gmail-validation-failed",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "fviBpoqQFRKs2aY1",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "errorMessage": "Workflow stopped: Registration validation failed. See preceding Gmail node for details sent to the user."
+      },
+      "id": "3f18170c-5be6-4c65-b144-250a41b6757d",
+      "name": "Stop Workflow",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        528,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = new Date();\nconst y = now.getFullYear();\nconst m = String(now.getMonth() + 1).padStart(2, '0');\nconst d = String(now.getDate()).padStart(2, '0');\nconst datePart = `${y}${m}${d}`;\nconst randomDigits = Math.floor(1000 + Math.random() * 9000);\nconst travelerId = `TRV-${datePart}-${randomDigits}`;\n\nreturn [{\n  json: {\n    ...$input.item.json,\n    travelerId,\n    registrationStatus: 'Registered',\n    workflowStatus: 'Profile Pending',\n    registrationTimestamp: now.toISOString()\n  }\n}];"
+      },
+      "id": "1a1618e3-aa50-488b-ae94-8e389992b40b",
+      "name": "Generate Traveler ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        304,
+        -128
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1Hr3TYtPGriHOwJSa1ez0Knjg1XeJiC-IVjHa2G45S5Q",
+          "mode": "list",
+          "cachedResultName": "Smart Tourism & Travel Planning Questionnaire (Responses)",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Hr3TYtPGriHOwJSa1ez0Knjg1XeJiC-IVjHa2G45S5Q/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 795017748,
+          "mode": "list",
+          "cachedResultName": "Form responses 1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Hr3TYtPGriHOwJSa1ez0Knjg1XeJiC-IVjHa2G45S5Q/edit#gid=795017748"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Full Name": "={{ $json.fullName }}",
+            "Email Address": "={{ $json.email }}",
+            "Phone Number": "={{ $json.phoneNumber }}",
+            "Age": "={{ $json.age }}",
+            "Country of Residence": "={{ $json.country }}",
+            "Departure City": "={{ $json.departureCity }}",
+            "Number of Travelers": "={{ $json.numberOfTravelers }}",
+            "Budget": "={{ $json.budget }}",
+            "Currency": "={{ $json.currency }}",
+            "Travel Style": "={{ $json.travelStyle }}",
+            "Interests": "={{ $json.interests }}",
+            "Preferred Transport": "={{ $json.transportPreference }}",
+            "Accommodation Preference": "={{ $json.accommodationPreference }}",
+            "Additional Comments": "={{ $json.comments }}",
+            "Special Requirements": "={{ $json.specialRequirements }}",
+            "Timestamp": "={{ $json.formTimestamp }}",
+            "Travel Start Date": "={{ $json.travelDates.split(\" to \")[0] }}",
+            "Travel End Date": "={{ $json.travelDates.split(\" to \")[1] }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Full Name",
+              "displayName": "Full Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email Address",
+              "displayName": "Email Address",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Phone Number",
+              "displayName": "Phone Number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Age",
+              "displayName": "Age",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Country of Residence",
+              "displayName": "Country of Residence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Departure City",
+              "displayName": "Departure City",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Travel Start Date",
+              "displayName": "Travel Start Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Travel End Date",
+              "displayName": "Travel End Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Number of Travelers",
+              "displayName": "Number of Travelers",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Budget",
+              "displayName": "Budget",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Currency",
+              "displayName": "Currency",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Travel Style",
+              "displayName": "Travel Style",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Interests",
+              "displayName": "Interests",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Preferred Transport",
+              "displayName": "Preferred Transport",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Accommodation Preference",
+              "displayName": "Accommodation Preference",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Special Requirements",
+              "displayName": "Special Requirements",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Additional Comments",
+              "displayName": "Additional Comments",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "67f42c04-07fb-4fbb-b984-d316af4496c6",
+      "name": "Google Sheets - Append Row",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        528,
+        -128
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "GXHemPVicMrOyJky",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1Hr3TYtPGriHOwJSa1ez0Knjg1XeJiC-IVjHa2G45S5Q",
+          "mode": "list",
+          "cachedResultName": "Smart Tourism & Travel Planning Questionnaire (Responses)",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Hr3TYtPGriHOwJSa1ez0Knjg1XeJiC-IVjHa2G45S5Q/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 795017748,
+          "mode": "list",
+          "cachedResultName": "Form responses 1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Hr3TYtPGriHOwJSa1ez0Knjg1XeJiC-IVjHa2G45S5Q/edit#gid=795017748"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Travel Personality": "={{ $json.output.travelPersonality }}",
+            "Recommended Activities": "={{ $json.output.recommendedActivities.join(\", \") }}",
+            "Budget Tier": "={{ $json.output.budgetTier }}",
+            "Email Address": "={{ $('Generate Traveler ID').item.json.email }}"
+          },
+          "matchingColumns": [
+            "Email Address"
+          ],
+          "schema": [
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Full Name",
+              "displayName": "Full Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email Address",
+              "displayName": "Email Address",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Phone Number",
+              "displayName": "Phone Number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Age",
+              "displayName": "Age",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Country of Residence",
+              "displayName": "Country of Residence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Departure City",
+              "displayName": "Departure City",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Travel Start Date",
+              "displayName": "Travel Start Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Travel End Date",
+              "displayName": "Travel End Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Number of Travelers",
+              "displayName": "Number of Travelers",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Budget",
+              "displayName": "Budget",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Currency",
+              "displayName": "Currency",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Travel Style",
+              "displayName": "Travel Style",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Interests",
+              "displayName": "Interests",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Preferred Transport",
+              "displayName": "Preferred Transport",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Accommodation Preference",
+              "displayName": "Accommodation Preference",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Special Requirements",
+              "displayName": "Special Requirements",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Additional Comments",
+              "displayName": "Additional Comments",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Travel Personality",
+              "displayName": "Travel Personality",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Recommended Activities",
+              "displayName": "Recommended Activities",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Budget Tier",
+              "displayName": "Budget Tier",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "4acecf97-7a6e-41f0-9cae-c6068feb34a9",
+      "name": "Update Google Sheets - AI Profile",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1312,
+        -128
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "GXHemPVicMrOyJky",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Generate Traveler ID').item.json.email }}",
+        "subject": "=Your Travel Registration is Confirmed - {{ $('Generate Traveler ID').item.json.fullName }}",
+        "message": "=<!DOCTYPE html>\n<html>\n<body style=\"font-family: Arial, sans-serif; color:#333; background:#f7f9fb; padding:20px;\">\n  <div style=\"max-width:600px;margin:0 auto;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);\">\n    <div style=\"background:#2c3e50;padding:24px;text-align:center;\">\n      <h1 style=\"color:#ffffff;margin:0;font-size:22px;\">Smart Tourism & Travel Planning</h1>\n    </div>\n    <div style=\"padding:24px;\">\n      <h2 style=\"color:#27ae60;\">Registration Confirmed 🎉</h2>\n      <p>Dear {{ $('Generate Traveler ID').item.json.fullName }},</p>\n      <p>Thank you for registering with us. Your travel profile has been successfully created and our AI planning engine has prepared tailored recommendations for you.</p>\n      <table style=\"width:100%;border-collapse:collapse;margin:16px 0;\">\n        <tr><td style=\"padding:8px;font-weight:bold;border-bottom:1px solid #eee;\">Full Name</td><td style=\"padding:8px;border-bottom:1px solid #eee;\">{{ $('Generate Traveler ID').item.json.fullName }}</td></tr>\n        <tr><td style=\"padding:8px;font-weight:bold;border-bottom:1px solid #eee;\">Trip Dates</td><td style=\"padding:8px;border-bottom:1px solid #eee;\">{{ $('Generate Traveler ID').item.json.travelDates }}</td></tr>\n        <tr><td style=\"padding:8px;font-weight:bold;border-bottom:1px solid #eee;\">Trip Duration</td><td style=\"padding:8px;border-bottom:1px solid #eee;\">{{ $('Generate Traveler ID').item.json.tripDuration }}</td></tr>\n        <tr><td style=\"padding:8px;font-weight:bold;border-bottom:1px solid #eee;\">Budget</td><td style=\"padding:8px;border-bottom:1px solid #eee;\">{{ $('Generate Traveler ID').item.json.budget }} {{ $('Generate Traveler ID').item.json.currency }}</td></tr>\n        <tr><td style=\"padding:8px;font-weight:bold;border-bottom:1px solid #eee;\">Travel Style</td><td style=\"padding:8px;border-bottom:1px solid #eee;\">{{ $('Generate Traveler ID').item.json.travelStyle }}</td></tr>\n        <tr><td style=\"padding:8px;font-weight:bold;border-bottom:1px solid #eee;\">Interests</td><td style=\"padding:8px;border-bottom:1px solid #eee;\">{{ $('Generate Traveler ID').item.json.interests }}</td></tr>\n        <tr><td style=\"padding:8px;font-weight:bold;border-bottom:1px solid #eee;\">Travel Personality</td><td style=\"padding:8px;border-bottom:1px solid #eee;\">{{ $json['Travel Personality'] }}</td></tr>\n        <tr><td style=\"padding:8px;font-weight:bold;border-bottom:1px solid #eee;\">Recommended Activities</td><td style=\"padding:8px;border-bottom:1px solid #eee;\">{{ $json['Recommended Activities'] }}</td></tr>\n        <tr><td style=\"padding:8px;font-weight:bold;border-bottom:1px solid #eee;\">Budget Tier</td><td style=\"padding:8px;border-bottom:1px solid #eee;\">{{ $json['Budget Tier'] }}</td></tr>\n      </table>\n      <p style=\"background:#eafaf1;padding:12px;border-radius:6px;color:#1e8449;\">Your registration is confirmed and your personalized traveler profile has been generated successfully.</p>\n      <p>Our team will soon reach out with curated itinerary options tailored to your preferences.</p>\n      <p style=\"margin-top:24px;\">Safe travels,<br/><strong>Smart Tourism & Travel Planning Platform</strong></p>\n    </div>\n  </div>\n</body>\n</html>",
+        "options": {}
+      },
+      "id": "be59a0c6-aad5-4e11-828d-57b5a549b77e",
+      "name": "Gmail - Send Confirmation",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1536,
+        -128
+      ],
+      "webhookId": "gmail-confirmation",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "fviBpoqQFRKs2aY1",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "r1",
+              "name": "travelerId",
+              "type": "string",
+              "value": "={{ $('Generate Traveler ID').item.json.email }}"
+            },
+            {
+              "id": "r2",
+              "name": "fullName",
+              "type": "string",
+              "value": "={{ $('Generate Traveler ID').item.json.fullName }}"
+            },
+            {
+              "id": "r3",
+              "name": "email",
+              "type": "string",
+              "value": "={{ $('Generate Traveler ID').item.json.email }}"
+            },
+            {
+              "id": "r4",
+              "name": "phoneNumber",
+              "type": "string",
+              "value": "={{ $('Generate Traveler ID').item.json.phoneNumber }}"
+            },
+            {
+              "id": "r5",
+              "name": "departureCity",
+              "type": "string",
+              "value": "={{ $('Generate Traveler ID').item.json.departureCity }}"
+            },
+            {
+              "id": "r6",
+              "name": "travelDates",
+              "type": "string",
+              "value": "={{ $('Generate Traveler ID').item.json.travelDates }}"
+            },
+            {
+              "id": "r7",
+              "name": "tripDuration",
+              "type": "string",
+              "value": "={{ $('Generate Traveler ID').item.json.tripDuration }}"
+            },
+            {
+              "id": "r8",
+              "name": "numberOfTravelers",
+              "type": "number",
+              "value": "={{ $('Generate Traveler ID').item.json.numberOfTravelers }}"
+            },
+            {
+              "id": "r9",
+              "name": "budget",
+              "type": "number",
+              "value": "={{ $('Generate Traveler ID').item.json.budget }}"
+            },
+            {
+              "id": "r10",
+              "name": "currency",
+              "type": "string",
+              "value": "={{ $('Generate Traveler ID').item.json.currency }}"
+            },
+            {
+              "id": "r11",
+              "name": "travelStyle",
+              "type": "string",
+              "value": "={{ $('Generate Traveler ID').item.json.travelStyle }}"
+            },
+            {
+              "id": "r12",
+              "name": "interests",
+              "type": "string",
+              "value": "={{ $('Generate Traveler ID').item.json.interests }}"
+            },
+            {
+              "id": "r13",
+              "name": "transportPreference",
+              "type": "string",
+              "value": "={{ $('Generate Traveler ID').item.json.transportPreference }}"
+            },
+            {
+              "id": "r14",
+              "name": "accommodationPreference",
+              "type": "string",
+              "value": "={{ $('Generate Traveler ID').item.json.accommodationPreference }}"
+            },
+            {
+              "id": "r15",
+              "name": "specialRequirements",
+              "type": "string",
+              "value": "={{ $('Generate Traveler ID').item.json.specialRequirements }}"
+            },
+            {
+              "id": "r16",
+              "name": "aiPersonality",
+              "type": "string",
+              "value": "={{ $('Update Google Sheets - AI Profile').item.json['Travel Personality'] }}"
+            },
+            {
+              "id": "r17",
+              "name": "aiBudgetCategory",
+              "type": "string",
+              "value": "={{ $('Update Google Sheets - AI Profile').item.json['Budget Tier'] }}"
+            },
+            {
+              "id": "r18",
+              "name": "aiTravelStyle",
+              "type": "string",
+              "value": "={{ $('Update Google Sheets - AI Profile').item.json['Recommended Activities'] }}"
+            },
+            {
+              "id": "r19",
+              "name": "aiTravelPriorities",
+              "type": "string",
+              "value": "={{ $('Update Google Sheets - AI Profile').item.json['Recommended Activities'] }}"
+            },
+            {
+              "id": "r20",
+              "name": "aiSummary",
+              "type": "string",
+              "value": "={{ $('Update Google Sheets - AI Profile').item.json['Travel Personality'] }}"
+            },
+            {
+              "id": "r21",
+              "name": "aiFutureNotes",
+              "type": "string",
+              "value": "={{ $('Generate Traveler ID').item.json.specialRequirements }}"
+            },
+            {
+              "id": "r22",
+              "name": "registrationStatus",
+              "type": "string",
+              "value": "=Confirmed"
+            },
+            {
+              "id": "r23",
+              "name": "workflowStatus",
+              "type": "string",
+              "value": "=Completed"
+            },
+            {
+              "id": "r24",
+              "name": "readyForWorkflow2",
+              "type": "boolean",
+              "value": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5525edba-d8b4-4f70-9882-7650189835da",
+      "name": "Respond with JSON",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1968,
+        -128
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "41cb7f8c-c269-47b5-9e84-42c8913eeace",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -816,
+        -32
+      ],
+      "id": "89b633c6-946b-4225-98d8-8815130cbf01",
+      "name": "Webhook",
+      "webhookId": "41cb7f8c-c269-47b5-9e84-42c8913eeace"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [\n  {\n    json: {\n      ...$json,\n      email: $json.email.trim(),\n      phoneNumber: $json.phoneNumber.trim(),\n      fullName: $json.fullName.trim(),\n      departureCity: $json.departureCity.trim()\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -368,
+        -32
+      ],
+      "id": "19a996ae-f3c9-44f9-8259-879736932e60",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        768,
+        96
+      ],
+      "id": "303454da-ddbe-414c-af89-328156bea499",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "jRkjj83Fa8JhcC3F",
+          "name": "travel api key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Based on this traveler data: {{ JSON.stringify($json) }}, generate a JSON object with these fields: travelPersonality (short description), recommendedActivities (array of 3-5 items), budgetTier (Budget/Mid-range/Luxury).\n  Return ONLY valid JSON, no markdown, no extra text.",
+        "hasOutputParser": true,
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        960,
+        -128
+      ],
+      "id": "3b221413-9c56-4887-8ab2-d1e53980b778",
+      "name": "Basic LLM Chain1"
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"travelPersonality\": \"A short 1-2 sentence description of the traveler's personality\",\n  \"recommendedActivities\": [\"activity 1\", \"activity 2\", \"activity 3\"],\n  \"budgetTier\": \"Budget\"\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        896,
+        96
+      ],
+      "id": "ed182209-0243-4795-935e-65bf788e81d7",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "zGM0by793ME7pX7U",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/zGM0by793ME7pX7U",
+          "cachedResultName": "Workflow 2 - Destination Recommendation & Budget Planning"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "fullName": "={{ $('Validation Node').item.json.fullName }}",
+            "email": "={{ $('Validation Node').item.json.email }}",
+            "age": "={{ $('Validation Node').item.json.age }}",
+            "country": "={{ $('Validation Node').item.json.country }}",
+            "departureCity": "={{ $('Validation Node').item.json.departureCity }}",
+            "travelStartDate": "={{ $('Validation Node').item.json.travelDates.split(' to ')[0] }}",
+            "budget": "={{ $('Validation Node').item.json.budget }}",
+            "currency": "={{ $('Validation Node').item.json.currency }}",
+            "numberOfTravelers": "={{ $('Validation Node').item.json.numberOfTravelers }}",
+            "travelStyle": "={{ $('Validation Node').item.json.travelStyle }}",
+            "interests": "={{ $('Validation Node').item.json.interests }}",
+            "accommodationPreference": "={{ $('Validation Node').item.json.accommodationPreference }}",
+            "preferredTransport": "={{ $('Validation Node').item.json.transportPreference }}",
+            "specialRequirements": "={{ $('Validation Node').item.json.specialRequirements }}",
+            "comments": "={{ $('Validation Node').item.json.comments }}",
+            "travelerId": "={{ $('Generate Traveler ID').item.json.travelerId }}",
+            "phoneNumber": "={{ $('Validation Node').item.json.phoneNumber }}",
+            "travelEndDate": "={{ $('Validation Node').item.json.travelDates.split(' to ')[1] }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "fullName",
+              "displayName": "fullName",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "age",
+              "displayName": "age",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "country",
+              "displayName": "country",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "departureCity",
+              "displayName": "departureCity",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "travelStartDate",
+              "displayName": "travelStartDate",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "travelEndDate",
+              "displayName": "travelEndDate",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "budget",
+              "displayName": "budget",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "currency",
+              "displayName": "currency",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "numberOfTravelers",
+              "displayName": "numberOfTravelers",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "travelStyle",
+              "displayName": "travelStyle",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "interests",
+              "displayName": "interests",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "accommodationPreference",
+              "displayName": "accommodationPreference",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "preferredTransport",
+              "displayName": "preferredTransport",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "specialRequirements",
+              "displayName": "specialRequirements",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "comments",
+              "displayName": "comments",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "travelerId",
+              "displayName": "travelerId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "phoneNumber",
+              "displayName": "phoneNumber",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1744,
+        -112
+      ],
+      "id": "de15b5d3-a9ac-4ddd-86cf-096f6da0a320",
+      "name": "Call 'Workflow 2 - Destination Recommendation & Budget Planning'1"
+    },
+    {
+      "parameters": {
+        "calendar": {
+          "__rl": true,
+          "value": "mahivarshney08@gmail.com",
+          "mode": "list",
+          "cachedResultName": "mahivarshney08@gmail.com"
+        },
+        "start": "={{ $('Generate Traveler ID').item.json.travelStartDate }}",
+        "end": "={{ $('Generate Traveler ID').item.json.travelEndDate }}",
+        "additionalFields": {
+          "attendees": [
+            "={{ $('Generate Traveler ID').item.json.email }}"
+          ],
+          "description": "=Booking Reference: {{ $('Generate Traveler ID').item.json.bookingReference }} Traveler: {{ $('Generate Traveler ID').item.json.fullName }} Destination: {{ $('Generate Traveler ID').item.json.destination }}",
+          "summary": "=Trip to {{ $('Generate Traveler ID').item.json.destination }} - {{ $('Generate Traveler ID').item.json.fullName }}"
+        }
+      },
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        736,
+        -128
+      ],
+      "id": "a5f1d7c7-8bff-465a-8ee0-d30cc0a04445",
+      "name": "Create an event",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "q5LpXQUgiwJsxvV6",
+          "name": "Google Calendar account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Rename Fields (Clean JSON)": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validation Node": {
+      "main": [
+        [
+          {
+            "node": "IF Validation Passed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Validation Passed": {
+      "main": [
+        [
+          {
+            "node": "Generate Traveler ID",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Gmail - Send Validation Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail - Send Validation Failed": {
+      "main": [
+        [
+          {
+            "node": "Stop Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Traveler ID": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets - Append Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Google Sheets - AI Profile": {
+      "main": [
+        [
+          {
+            "node": "Gmail - Send Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail - Send Confirmation": {
+      "main": [
+        [
+          {
+            "node": "Call 'Workflow 2 - Destination Recommendation & Budget Planning'1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Rename Fields (Clean JSON)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Validation Node",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets - Append Row": {
+      "main": [
+        [
+          {
+            "node": "Create an event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Basic LLM Chain1",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain1": {
+      "main": [
+        [
+          {
+            "node": "Update Google Sheets - AI Profile",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call 'Workflow 2 - Destination Recommendation & Budget Planning'1": {
+      "main": [
+        [
+          {
+            "node": "Respond with JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create an event": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "c8bc0cf9-2abd-44c8-bf8e-a439465bd80f",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "e0ee328dba738c516ae8cd75aedca74b979bb32ec19925533846568dc06b6a30"
+  },
+  "nodeGroups": [],
+  "id": "BaRf0ayrRgtOBukR",
+  "tags": []
+}

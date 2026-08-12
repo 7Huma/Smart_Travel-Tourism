@@ -1,0 +1,312 @@
+{
+  "name": "Workflow 5 - Feedback Collection & Travel Analytics",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "jsonExample",
+        "jsonExample": "{\n  \"travelerId\": \"\",\n  \"bookingReference\": \"\",\n  \"fullName\": \"\",\n  \"email\": \"\",\n  \"destination\": \"\",\n  \"travelStartDate\": \"\",\n  \"travelEndDate\": \"\",\n  \"totalBudget\": \"\",\n  \"hotelName\": \"\",\n  \"transportType\": \"\"\n}"
+      },
+      "id": "9b56b428-73ed-4218-9455-765e71a59b34",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -192,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = items[0].json || {};\n\nfunction trimStr(v) {\n  if (v === undefined || v === null) return '';\n  return String(v).trim();\n}\n\nfunction toNumber(v, fallback) {\n  const n = parseFloat(v);\n  return isNaN(n) ? fallback : n;\n}\n\nconst normalized = {\n  travelerId: trimStr(input.travelerId),\n  bookingReference: trimStr(input.bookingReference),\n  fullName: trimStr(input.fullName) || 'Valued Traveler',\n  email: trimStr(input.email),\n  destination: trimStr(input.destination),\n  travelStartDate: trimStr(input.travelStartDate),\n  travelEndDate: trimStr(input.travelEndDate),\n  totalBudget: toNumber(input.totalBudget, 0),\n  hotelName: trimStr(input.hotelName) || 'Not specified',\n  transportType: trimStr(input.transportType) || 'Not specified'\n};\n\nreturn [{ json: normalized }];"
+      },
+      "id": "3f21de9e-9cb2-4cca-9ceb-43a2b46d8a95",
+      "name": "Normalize Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        32,
+        32
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = items[0].json;\n\nconst requiredFields = ['travelerId', 'bookingReference', 'email', 'destination'];\nconst missing = requiredFields.filter(f => !d[f] || d[f] === '');\n\nreturn [{\n  json: {\n    ...d,\n    isValid: missing.length === 0,\n    missingFields: missing\n  }\n}];"
+      },
+      "id": "b9ea5d5b-c23a-4529-8f0b-f62601a7bcdf",
+      "name": "Validate Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        256,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond-valid-input",
+              "leftValue": "={{ $json.isValid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "62de6eea-8472-48a1-ade7-fd1d9bca1644",
+      "name": "IF Valid Input",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        480,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "status",
+              "value": "failed",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "reason",
+              "value": "Missing required fields",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "665bc64b-2ba8-46a6-88da-4e4de1ef1d1e",
+      "name": "Validation Error Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        704,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = items[0].json;\n\nconst markdown = `# Feedback Request\n\n**Traveler Name:** ${d.fullName}\n**Destination:** ${d.destination}\n**Trip Dates:** ${d.travelStartDate} to ${d.travelEndDate}\n**Booking Reference:** ${d.bookingReference}\n\n## Feedback Questions\n\n1. Overall Trip Rating (1-5)\n2. Hotel Rating (1-5)\n3. Transport Rating (1-5)\n4. Food Rating (1-5)\n5. Safety Rating (1-5)\n6. Destination Rating (1-5)\n7. Was the itinerary useful?\n8. Would you recommend this destination?\n9. What was your favorite part of the trip?\n10. What was your least favorite part?\n11. Any suggestions for improvement?\n12. Additional comments\n`;\n\nreturn [{\n  json: {\n    ...d,\n    feedbackFormMarkdown: markdown\n  }\n}];"
+      },
+      "id": "efbf876e-5a6d-43ee-9375-42fbd86cf286",
+      "name": "Generate Feedback Form",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        704,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.email }}",
+        "subject": "=How was your trip to {{ $json.destination }}?",
+        "emailType": "text",
+        "message": "=Hi {{ $json.fullName }},\n\nThank you for traveling with us to {{ $json.destination }}! We hope you had a wonderful trip.\n\nBooking Reference: {{ $json.bookingReference }}\nTrip Dates: {{ $json.travelStartDate }} to {{ $json.travelEndDate }}\n\nWe would love to hear about your experience. Please take a moment to answer the following:\n\nhttps://docs.google.com/forms/d/e/1FAIpQLSc1dCVF3eGFppVpKBgZ2PVDlirEyzC0a8-9GKj-WIgXzTrg1A/viewform\n\nYour feedback helps us improve our services for future travelers.\n\nIf you need any assistance, please contact our support team at support@smarttourism.example.com.\n\nSafe travels,\nSmart Tourism & Travel Planning Team",
+        "options": {}
+      },
+      "id": "504644a4-729d-4af3-a8db-37a9e4cee327",
+      "name": "Send Gmail Feedback Request",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        928,
+        -80
+      ],
+      "webhookId": "0054a747-7fe5-4465-be93-5ca1cdbcc859",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "fviBpoqQFRKs2aY1",
+          "name": "Gmail account"
+        }
+      },
+      "continueOnFail": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "status",
+              "value": "failed",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "reason",
+              "value": "AI parsing failed",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "03f9f99c-1192-48fd-8640-90b23ff9ff11",
+      "name": "AI Parse Error Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2176,
+        64
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "6c43524d-ae9c-4772-8f23-213682741230",
+      "name": "Workflow Error Handler",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        -192,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const err = $input.first().json;\n\nreturn [{\n  json: {\n    status: 'failed',\n    reason: 'Workflow Error Handler: An unexpected error occurred during execution',\n    errorDetails: err.error ? err.error.message || String(err.error) : 'Unknown error'\n  }\n}];"
+      },
+      "id": "49dbd539-0e92-49c4-8967-25dc22e64f38",
+      "name": "Format Error Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        32,
+        336
+      ]
+    }
+  ],
+  "pinData": {
+    "Execute Workflow Trigger": [
+      {
+        "json": {
+          "travelerId": "TRV1024",
+          "bookingReference": "BKG78934",
+          "fullName": "Aditya Sharma",
+          "email": "mahivarshney08@gmail.com",
+          "destination": "Manali, Himachal Pradesh",
+          "travelStartDate": "2026-05-10",
+          "travelEndDate": "2026-05-15",
+          "totalBudget": "45000",
+          "hotelName": "Snow Valley Resort",
+          "transportType": "Flight + Cab"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Input": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "IF Valid Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Valid Input": {
+      "main": [
+        [
+          {
+            "node": "Generate Feedback Form",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Validation Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Feedback Form": {
+      "main": [
+        [
+          {
+            "node": "Send Gmail Feedback Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Gmail Feedback Request": {
+      "main": [
+        []
+      ]
+    },
+    "Workflow Error Handler": {
+      "main": [
+        [
+          {
+            "node": "Format Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "d11cdeec-af20-4da8-b94c-037a6d3a59d9",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "e0ee328dba738c516ae8cd75aedca74b979bb32ec19925533846568dc06b6a30"
+  },
+  "nodeGroups": [],
+  "id": "LVz9d6rkp8eUftP9",
+  "tags": []
+}

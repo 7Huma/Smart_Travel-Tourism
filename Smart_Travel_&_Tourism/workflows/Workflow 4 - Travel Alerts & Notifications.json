@@ -1,0 +1,747 @@
+{
+  "name": "Workflow 4 - Travel Alerts & Notifications",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "travelerId"
+            },
+            {
+              "name": "fullName"
+            },
+            {
+              "name": "email"
+            },
+            {
+              "name": "destination"
+            },
+            {
+              "name": "travelStartDate"
+            },
+            {
+              "name": "travelEndDate"
+            },
+            {
+              "name": "bookingReference"
+            },
+            {
+              "name": "hotelName"
+            },
+            {
+              "name": "transportType"
+            },
+            {
+              "name": "phoneNumber"
+            }
+          ]
+        }
+      },
+      "id": "92eda3e2-9b48-4643-8705-cfda66aa9ae6",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -1440,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\n\nconst normalized = {\n  travelerId: (input.travelerId || '').toString().trim(),\n  fullName: (input.fullName || '').toString().trim(),\n  email: (input.email || '').toString().trim(),\n  destination: (input.destination || '').toString().trim(),\n  travelStartDate: (input.travelStartDate || '').toString().trim(),\n  travelEndDate: (input.travelEndDate || '').toString().trim(),\n  bookingReference: (input.bookingReference || '').toString().trim(),\n  hotelName: (input.hotelName || '').toString().trim(),\n  transportType: (input.transportType || '').toString().trim(),\n  phoneNumber: (input.phoneNumber || '').toString().trim()\n};\n\nreturn [{ json: normalized }];"
+      },
+      "id": "c5db751e-097d-4ca1-9545-1e52f69af570",
+      "name": "Normalize Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1216,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "v1",
+              "leftValue": "={{ $json.travelerId }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            },
+            {
+              "id": "v2",
+              "leftValue": "={{ $json.fullName }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            },
+            {
+              "id": "v3",
+              "leftValue": "={{ $json.email }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            },
+            {
+              "id": "v4",
+              "leftValue": "={{ $json.destination }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            },
+            {
+              "id": "v5",
+              "leftValue": "={{ $json.travelStartDate }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ad3804d4-8b3a-4f5e-87da-61d2f2b0548d",
+      "name": "Validate Required Fields",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -992,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "vf1",
+              "name": "status",
+              "type": "string",
+              "value": "failed"
+            },
+            {
+              "id": "vf2",
+              "name": "reason",
+              "type": "string",
+              "value": "Missing required fields"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "057ed068-31db-45f8-a005-d2b3a2745a12",
+      "name": "Validation Failure Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -768,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\n\nlet aiText = '';\n\ntry {\n  if (Array.isArray(raw.output)) {\n    const assistantItem = raw.output.find(item => item.role === 'assistant');\n    if (assistantItem && Array.isArray(assistantItem.content) && assistantItem.content[0]) {\n      aiText = assistantItem.content[0].text || '';\n    }\n  }\n\n  if (!aiText && raw.message && raw.message.content) {\n    aiText = raw.message.content;\n  } else if (!aiText && raw.choices && raw.choices[0] && raw.choices[0].message) {\n    aiText = raw.choices[0].message.content;\n  } else if (!aiText && raw.text) {\n    aiText = raw.text;\n  } else if (!aiText && typeof raw === 'string') {\n    aiText = raw;\n  }\n} catch (e) {\n  aiText = '';\n}\n\nlet parsed = {};\nlet parseSuccess = true;\nlet errorMessage = '';\n\ntry {\n  const cleaned = aiText.replace(/```json/g, '').replace(/```/g, '').trim();\n  parsed = JSON.parse(cleaned);\n} catch (error) {\n  parseSuccess = false;\n  errorMessage = error.message;\n  parsed = {};\n}\n\nconst previous = $('Normalize Input').first().json;\n\nreturn [{\n  json: {\n    ...previous,\n    parseSuccess,\n    errorMessage,\n    weatherAdvisory: parsed.weatherAdvisory || '',\n    packingChecklist: parsed.packingChecklist || [],\n    localSafetyTips: parsed.localSafetyTips || [],\n    emergencyContactsReminder: parsed.emergencyContactsReminder || '',\n    currencyReminder: parsed.currencyReminder || '',\n    languageTips: parsed.languageTips || [],\n    transportationReminder: parsed.transportationReminder || '',\n    airportArrivalReminder: parsed.airportArrivalReminder || '',\n    healthPrecautions: parsed.healthPrecautions || [],\n    culturalEtiquette: parsed.culturalEtiquette || []\n  }\n}];"
+      },
+      "id": "d17bcb10-6319-4588-bdc5-7d7b10b836b6",
+      "name": "Parse AI Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -192,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "p1",
+              "leftValue": "={{ $json.parseSuccess }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "26f2cb06-58ad-4da4-bfc7-ddf3bf9a4e26",
+      "name": "Check Parsing Success",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        32,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "pf1",
+              "name": "status",
+              "type": "string",
+              "value": "failed"
+            },
+            {
+              "id": "pf2",
+              "name": "reason",
+              "type": "string",
+              "value": "AI parsing failed"
+            },
+            {
+              "id": "pf3",
+              "name": "errorMessage",
+              "type": "string",
+              "value": "={{ $json.errorMessage }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e974dea3-1027-4d6d-a2ea-2d6729181784",
+      "name": "Parsing Failure Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        256,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\n\nlet markdown = `# Travel Reminder\\n\\n`;\nmarkdown += `**Traveler:** ${data.fullName}\\n`;\nmarkdown += `**Destination:** ${data.destination}\\n`;\nmarkdown += `**Travel Date:** ${data.travelStartDate} to ${data.travelEndDate}\\n\\n`;\n\nmarkdown += `## Weather\\n${data.weatherAdvisory}\\n\\n`;\n\nmarkdown += `## Packing Tips\\n`;\n(data.packingChecklist || []).forEach(item => {\n  markdown += `- ${item}\\n`;\n});\n\nmarkdown += `\\n## Safety Advice\\n`;\n(data.localSafetyTips || []).forEach(tip => {\n  markdown += `- ${tip}\\n`;\n});\n\nmarkdown += `\\n## Transport Reminder\\n${data.transportationReminder}\\n\\n`;\nmarkdown += `## Airport Arrival Reminder\\n${data.airportArrivalReminder}\\n\\n`;\nmarkdown += `## Currency Reminder\\n${data.currencyReminder}\\n\\n`;\n\nmarkdown += `## Language Tips\\n`;\n(data.languageTips || []).forEach(tip => {\n  markdown += `- ${tip}\\n`;\n});\n\nmarkdown += `\\n## Health Precautions\\n`;\n(data.healthPrecautions || []).forEach(item => {\n  markdown += `- ${item}\\n`;\n});\n\nmarkdown += `\\n## Cultural Etiquette\\n`;\n(data.culturalEtiquette || []).forEach(item => {\n  markdown += `- ${item}\\n`;\n});\n\nmarkdown += `\\n## Emergency Tips\\n${data.emergencyContactsReminder}\\n\\n`;\nmarkdown += `Have a great trip!\\n`;\n\nconst packingChecklistText = (data.packingChecklist || []).join(', ');\nconst safetyTipsText = (data.localSafetyTips || []).join(', ');\n\nreturn [{\n  json: {\n    ...data,\n    markdownMessage: markdown,\n    packingChecklistText,\n    safetyTipsText,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "18626ff9-f27d-4a76-ac47-0505eb1f6143",
+      "name": "Generate Reminder Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        256,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Generate Reminder Message').item.json.email }}",
+        "subject": "=Travel Reminder - {{ $json.destination }}",
+        "message": "=Hello {{ $('Generate Reminder Message').item.json.fullName }},<br><br><pre>{{ $('Generate Reminder Message').item.json.markdownMessage }}</pre>",
+        "options": {}
+      },
+      "id": "48c510b6-5275-4bbe-87e6-06cac4b66c80",
+      "name": "Send Travel Reminder Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        480,
+        96
+      ],
+      "webhookId": "440219aa-c249-4904-bca0-f1206a94127a",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "fviBpoqQFRKs2aY1",
+          "name": "Gmail account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\n\nreturn [{\n  json: {\n    ...data,\n    emailSent: data.emailSent !== undefined ? data.emailSent : true\n  }\n}];"
+      },
+      "id": "69a7b663-5bf5-4a99-bb33-0ed30bb7d3e7",
+      "name": "Set Email Status Flag",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        704,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "12NeryJtfNTm6ajX7KAoq1EzJaN9T6i90Af2AtSysOVw",
+          "mode": "list",
+          "cachedResultName": "Travel Platform Data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/12NeryJtfNTm6ajX7KAoq1EzJaN9T6i90Af2AtSysOVw/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/12NeryJtfNTm6ajX7KAoq1EzJaN9T6i90Af2AtSysOVw/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Traveler ID": "={{ $('Generate Reminder Message').item.json.travelerId }}",
+            "Timestamp ": "={{ $('Generate Reminder Message').item.json.timestamp }}",
+            " Name": "={{ $('Generate Reminder Message').item.json.fullName }}",
+            "Destination": "={{ $('Generate Reminder Message').item.json.destination }}",
+            "Travel Date": "={{ $('Generate Reminder Message').item.json.travelStartDate }} to {{ $('Generate Reminder Message').item.json.travelEndDate }}",
+            "Weather Alert": "={{ $('Generate Reminder Message').item.json.weatherAdvisory }}",
+            "Packing Tips": "={{ $('Generate Reminder Message').item.json.packingChecklistText }}",
+            "Safety Tips": "={{ $('Generate Reminder Message').item.json.safetyTipsText }}",
+            " Currency Reminder": "={{ $('Generate Reminder Message').item.json.currencyReminder }}",
+            " Status": "=={{ $('Generate Reminder Message').item.json.timestamp ? 'Sent' : 'Email Failed' }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Timestamp ",
+              "displayName": "Timestamp ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Traveler ID",
+              "displayName": "Traveler ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": " Name",
+              "displayName": " Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Destination",
+              "displayName": "Destination",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Travel Date",
+              "displayName": "Travel Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Weather Alert",
+              "displayName": "Weather Alert",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Packing Tips",
+              "displayName": "Packing Tips",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Safety Tips",
+              "displayName": "Safety Tips",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": " Currency Reminder",
+              "displayName": " Currency Reminder",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": " Status",
+              "displayName": " Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "1d4924f3-7a38-4eb0-acdc-e9c6d291fb8d",
+      "name": "Append to Travel Alerts Log",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        928,
+        96
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "GXHemPVicMrOyJky",
+          "name": "Google Sheets account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "s1",
+              "name": "status",
+              "type": "string",
+              "value": "success"
+            },
+            {
+              "id": "s2",
+              "name": "travelerName",
+              "type": "string",
+              "value": "={{ $json.fullName }}"
+            },
+            {
+              "id": "s3",
+              "name": "destination",
+              "type": "string",
+              "value": "={{ $json.destination }}"
+            },
+            {
+              "id": "s4",
+              "name": "travelDate",
+              "type": "string",
+              "value": "={{ $json.travelStartDate }} to {{ $json.travelEndDate }}"
+            },
+            {
+              "id": "s5",
+              "name": "weatherAlert",
+              "type": "string",
+              "value": "={{ $json.weatherAdvisory }}"
+            },
+            {
+              "id": "s6",
+              "name": "packingChecklist",
+              "type": "array",
+              "value": "={{ $json.packingChecklist }}"
+            },
+            {
+              "id": "s7",
+              "name": "safetyTips",
+              "type": "array",
+              "value": "={{ $json.localSafetyTips }}"
+            },
+            {
+              "id": "s8",
+              "name": "emailSent",
+              "type": "boolean",
+              "value": "={{ $json.emailSent }}"
+            },
+            {
+              "id": "s9",
+              "name": "timestamp",
+              "type": "string",
+              "value": "={{ $json.timestamp }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d5ed5a14-9526-44a4-80f7-e4a6141131e5",
+      "name": "Success Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1152,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=Generate a travel alert and preparation briefing for the following trip. \nTraveler Name: {{ $('Normalize Input').item.json.fullName }}\nDestination: {{ $('Normalize Input').item.json.destination }}\nTravel Start Date: {{ $('Normalize Input').item.json.travelStartDate }}\nTravel End Date: {{ $('Normalize Input').item.json.travelEndDate }}\nHotel: {{ $('Normalize Input').item.json.hotelName }}\nTransport Type: {{ $('Normalize Input').item.json.transportType }}\nBooking Reference: {{ $('Normalize Input').item.json.bookingReference }}\n\nWeather Forecast: {{ $('HTTP Request').item.json.list[0].weather[0].description }}\nExpected Temperature: {{ $('HTTP Request').item.json.list[0].main.temp }}°C (feels like {{ $('HTTP Request').item.json.list[0].main.feels_like }}°C)\nHumidity: {{ $('HTTP Request').item.json.list[0].main.humidity }}%\n\nUsing this weather information, generate relevant weather-appropriate advice \n(clothing, packing items, precautions).\n\nReturn STRICT JSON only, no markdown, no explanation, matching exactly this structure: \n{ \"weatherAdvisory\": \"\", \"packingChecklist\": [], \"localSafetyTips\": [], \n\"emergencyContactsReminder\": \"\", \"currencyReminder\": \"\", \"languageTips\": [], \n\"transportationReminder\": \"\", \"airportArrivalReminder\": \"\", \n\"healthPrecautions\": [], \"culturalEtiquette\": [] }"
+            },
+            {
+              "role": "system",
+              "content": "You are a travel safety and preparation advisor. Always respond with strict valid JSON only. Do not include markdown, code fences, or any explanation text outside the JSON object"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        -544,
+        192
+      ],
+      "id": "85c47d44-0fbd-4b5b-b2c6-d9c013ee6c28",
+      "name": "Message a model",
+      "credentials": {
+        "openAiApi": {
+          "id": "jRkjj83Fa8JhcC3F",
+          "name": "travel api key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://api.openweathermap.org/data/2.5/forecast",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "=q",
+              "value": "={{ $json.destination }}"
+            },
+            {
+              "name": "appid",
+              "value": "6fa14e400ca0ea5d49ffc96dbdc91d9a"
+            },
+            {
+              "name": "units",
+              "value": "metric"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -768,
+        192
+      ],
+      "id": "a6b71391-9523-4b1f-8930-1f50cb540d21",
+      "name": "HTTP Request"
+    }
+  ],
+  "pinData": {
+    "Execute Workflow Trigger": [
+      {
+        "json": {
+          "travelerId": "TRV10234",
+          "fullName": "Rohan Sharma",
+          "email": "mahivarshney08@gmail.com",
+          "destination": "Bali, Indonesia",
+          "travelStartDate": "2026-09-10",
+          "travelEndDate": "2026-09-16",
+          "bookingReference": "BKG78912",
+          "hotelName": "Kuta Beach Resort",
+          "transportType": "Flight",
+          "phoneNumber": "+91-9876543210"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Input": {
+      "main": [
+        [
+          {
+            "node": "Validate Required Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Required Fields": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Validation Failure Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Response": {
+      "main": [
+        [
+          {
+            "node": "Check Parsing Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Parsing Success": {
+      "main": [
+        [
+          {
+            "node": "Generate Reminder Message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Parsing Failure Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Reminder Message": {
+      "main": [
+        [
+          {
+            "node": "Send Travel Reminder Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Travel Reminder Email": {
+      "main": [
+        [
+          {
+            "node": "Set Email Status Flag",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Email Status Flag": {
+      "main": [
+        [
+          {
+            "node": "Append to Travel Alerts Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append to Travel Alerts Log": {
+      "main": [
+        [
+          {
+            "node": "Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "ff4082b8-6fc1-4464-8d4e-d4c0bb5e8620",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "e0ee328dba738c516ae8cd75aedca74b979bb32ec19925533846568dc06b6a30"
+  },
+  "nodeGroups": [],
+  "id": "kWWFfPlv3Cx0bjqf",
+  "tags": []
+}
